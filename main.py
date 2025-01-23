@@ -16,8 +16,8 @@ def get_count_from_kibana(yesterday):
                         "range": {
                             "@timestamp": {
                                 "gte": f"now/d-{yesterday}d/d",
-                                "lt": f"now/d-{yesterday-1}d/d",
-                                "time_zone": "+08:00"
+                                "lt": f"now/d-{yesterday-1}d/d"
+                                
                             }
                         }
                     },
@@ -99,7 +99,7 @@ def summarize_monthly_counts():
 
 # Main function to run the script daily
 def main():
-    day = 3
+    day = 1
     # Get yesterday's date
     yesterday = (datetime.now() - timedelta(days=day)).day
     
