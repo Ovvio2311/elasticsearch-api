@@ -4,9 +4,9 @@ import os
 from datetime import datetime, timedelta
 
 # Function to get the count of documents matching the criteria from Kibana
-def get_count_from_kibana():
+def get_count_from_kibana(yesterday):
     url = "http://localhost:9200/your_index/_search"
-    auth = ('elastic', 'elastic')
+    auth = ('your_username', 'your_password')
     headers = {'Content-Type': 'application/json'}
     query = {
         "query": {
@@ -15,7 +15,7 @@ def get_count_from_kibana():
                     {
                         "range": {
                             "timestamp": {
-                                "gte": "now-1d/d",
+                                "gte": f"now-{yesterday}d/d",
                                 "lte": "now/d",
                                 "time_zone": "+08:00"
                             }
@@ -34,13 +34,11 @@ def get_count_from_kibana():
                 ]
             }
         },
-        "size": 0,
-        "track_total_hits": True
     }
 
-    response = requests.post(url, auth=auth, headers=headers, json=query)
+    response = requests.post(url, auth=auth, headers=headers, json=query, verify=False)
     response_data = response.json()
-    count = response_data['hits']['total']['value']
+    count = response_data['count']
     return count
 
 # Function to write the count to a CSV file
@@ -48,19 +46,32 @@ def write_count_to_csv(date, count):
     month = date.strftime("%Y-%m")
     csv_filename = f"{month}_counts.csv"
     
-    # Check if the CSV file exists
-    file_exists = os.path.isfile(csv_filename)
+    # Read existing data from the CSV file
+    data = []
+    if os.path.isfile(csv_filename):
+        with open(csv_filename, mode='r') as file:
+            reader = csv.DictReader(file)
+            for row in reader:
+                data.append(row)
     
-    # Open the CSV file in append mode
-    with open(csv_filename, mode='a', newline='') as file:
-        writer = csv.writer(file)
-        
-        # Write the header if the file does not exist
-        if not file_exists:
-            writer.writerow(['Date', 'Count'])
-        
-        # Write the date and count
-        writer.writerow([date.strftime("%Y-%m-%d"), count])
+    # Check if the date already exists in the data
+    date_str = date.strftime("%Y-%m-%d")
+    date_exists = False
+    for row in data:
+        if row['Date'] == date_str:
+            row['Count'] = count
+            date_exists = True
+            break
+    
+    # If the date does not exist, append the new data
+    if not date_exists:
+        data.append({'Date': date_str, 'Count': count})
+    
+    # Write the updated data back to the CSV file
+    with open(csv_filename, mode='w', newline='') as file:
+        writer = csv.DictWriter(file, fieldnames=['Date', 'Count'])
+        writer.writeheader()
+        writer.writerows(data)
 
 # Function to sum up the counts for the month and write to a summary CSV file
 def summarize_monthly_counts():
@@ -86,17 +97,18 @@ def summarize_monthly_counts():
 
 # Main function to run the script daily
 def main():
+    day = 2
     # Get yesterday's date
-    yesterday = datetime.now() - timedelta(days=1)
+    yesterday = (datetime.now() - timedelta(days=day)).day
     
     # Get the count from Kibana
-    count = get_count_from_kibana()
+    count = get_count_from_kibana(day)
     
     # Write the count to the CSV file
-    write_count_to_csv(yesterday, count)
+    write_count_to_csv(datetime.now() - timedelta(days=day), count)
     
     # Summarize the monthly counts at the end of the month
-    if yesterday.day == 1:
+    if (datetime.now() - timedelta(days=day)).day == 1:
         summarize_monthly_counts()
 
 # Run the main function
