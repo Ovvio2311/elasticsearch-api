@@ -5,8 +5,8 @@ from datetime import datetime, timedelta
 
 # Function to get the count of documents matching the criteria from Kibana
 def get_count_from_kibana(yesterday):
-    url = "http://localhost:9200/your_index/_search"
-    auth = ('your_username', 'your_password')
+    url = "https://local.harbor.io/elastic/java-exchange-rate/_search"
+    auth = ('elastic', 'zPfsPE5Z0F96M247acB986Sq')
     headers = {'Content-Type': 'application/json'}
     query = {
         "query": {
@@ -14,31 +14,33 @@ def get_count_from_kibana(yesterday):
                 "must": [
                     {
                         "range": {
-                            "timestamp": {
-                                "gte": f"now-{yesterday}d/d",
-                                "lte": "now/d",
+                            "@timestamp": {
+                                "gte": f"now/d-{yesterday}d/d",
+                                "lt": f"now/d-{yesterday-1}d/d",
                                 "time_zone": "+08:00"
                             }
                         }
                     },
                     {
                         "match": {
-                            "your_field1": "your_value1"
+                            "message": "JPY"
                         }
                     },
                     {
                         "match": {
-                            "your_field2": "your_value2"
+                            "message": "HKD"
                         }
                     }
                 ]
             }
         },
+        "size":0,
+        "track_total_hits":True
     }
 
     response = requests.post(url, auth=auth, headers=headers, json=query, verify=False)
     response_data = response.json()
-    count = response_data['count']
+    count = response_data['hits']['total']['value']
     return count
 
 # Function to write the count to a CSV file
@@ -97,7 +99,7 @@ def summarize_monthly_counts():
 
 # Main function to run the script daily
 def main():
-    day = 2
+    day = 3
     # Get yesterday's date
     yesterday = (datetime.now() - timedelta(days=day)).day
     
